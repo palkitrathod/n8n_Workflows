@@ -1,0 +1,317 @@
+{
+  "name": "TestCaseGeneratorFromJira",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.fields.description }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a QA test case generator. Analyze the JIRA ticket description and generate comprehensive functional test cases. For each test case, provide: test case ID, name, description, preconditions, detailed steps (numbered), expected results, and priority level."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        272,
+        128
+      ],
+      "id": "4a581e98-6d71-4c3c-ac4d-92cc4a6494fe",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        280,
+        352
+      ],
+      "id": "72217b53-2b34-4b68-a2d2-856f9a5a7cfe",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "OXNTrNOQ19TrPA2B",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "https://docs.google.com/document/d/1ZUizzlitwmIyyZ-ucwRAgaisSoyKSFcXd-fmfjwL6s4/edit?tab=t.0",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $json.formattedTable }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        848,
+        128
+      ],
+      "id": "b7a4524e-0b30-41e8-b739-3787b3f03e7b",
+      "name": "Update a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "ETUQn9D2wLLUwXxu",
+          "name": "Google Docs OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"testCaseId\": \"TC-001\",\n\t\"testCaseName\": \"User Login Test\",\n\t\"description\": \"Verify that a user can successfully log in with valid credentials\",\n\t\"preconditions\": \"User account exists and is active\",\n\t\"steps\": [\n\t\t{\n\t\t\t\"stepNumber\": 1,\n\t\t\t\"action\": \"Navigate to login page\"\n\t\t},\n\t\t{\n\t\t\t\"stepNumber\": 2,\n\t\t\t\"action\": \"Enter valid username and password\"\n\t\t},\n\t\t{\n\t\t\t\"stepNumber\": 3,\n\t\t\t\"action\": \"Click login button\"\n\t\t}\n\t],\n\t\"expectedResults\": \"User is successfully logged in and redirected to dashboard\",\n\t\"priority\": \"High\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        408,
+        352
+      ],
+      "id": "9c049f1b-b9e1-41fc-bb0b-65989d08c4b5",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "issueKey": "={{ $json['JIRA Ticket Key'] }}",
+        "additionalFields": {}
+      },
+      "id": "fa40b2c9-f8fe-4e46-807b-cc57541af7e5",
+      "name": "Get JIRA Ticket",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        48,
+        32
+      ],
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "br5y2lpDoWf4avdv",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format AI-generated test cases into a markdown table for Google Docs\nconst items = $input.all();\n\n// Start building the markdown table\nlet markdownTable = '# Test Cases\\n\\n';\nmarkdownTable += '| Test Case ID | Name | Description | Preconditions | Steps | Expected Results | Priority |\\n';\nmarkdownTable += '|--------------|------|-------------|---------------|-------|------------------|----------|\\n';\n\n// Iterate through each test case\nfor (const item of items) {\n  const testCase = item.json.output;\n  \n  // Format the steps array into a numbered list\n  let stepsFormatted = '';\n  if (testCase.steps && Array.isArray(testCase.steps)) {\n    stepsFormatted = testCase.steps\n      .map(step => `${step.stepNumber}. ${step.action}`)\n      .join('<br>');\n  }\n  \n  // Add row to table\n  markdownTable += `| ${testCase.testCaseId || ''} | ${testCase.testCaseName || ''} | ${testCase.description || ''} | ${testCase.preconditions || ''} | ${stepsFormatted} | ${testCase.expectedResults || ''} | ${testCase.priority || ''} |\\n`;\n}\n\n// Return the formatted table\nreturn [{\n  json: {\n    formattedTable: markdownTable\n  }\n}];"
+      },
+      "id": "647a446f-4e99-4a6c-b32b-4c9ae70f9ec8",
+      "name": "Format Test Cases as Table",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "path": "jira-test-cases",
+        "formTitle": "Generate Test Cases from JIRA Ticket",
+        "formDescription": "Enter the JIRA ticket key (e.g., SCRUM-37) to generate functional test cases",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "JIRA Ticket Key"
+            },
+            {
+              "fieldLabel": "Ticket Details (Optional)",
+              "fieldType": "textarea",
+              "placeholder": "If you already have the ticket description, paste it here to skip JIRA lookup"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b954d3c6-33ac-4dbd-9800-7a4a5168c430",
+      "name": "Enter JIRA Ticket Key",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        128
+      ],
+      "webhookId": "f6a1b278-6c9a-4e2c-b097-ff9f2e86702d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "id-1",
+              "leftValue": "={{ $('Enter JIRA Ticket Key').item.json['Ticket Details (Optional)'] }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "756f5e32-00bb-44d7-bb84-d591b0d0184c",
+      "name": "Check If Details Provided",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "fields",
+              "value": "={{ JSON.stringify({ \"description\": $json['Ticket Details (Optional)'] }) }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0085295a-305b-4b2f-857f-da8249d434a7",
+      "name": "Prepare Manual Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        48,
+        224
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Test Cases as Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get JIRA Ticket": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Test Cases as Table": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enter JIRA Ticket Key": {
+      "main": [
+        [
+          {
+            "node": "Check If Details Provided",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a document": {
+      "main": [
+        []
+      ]
+    },
+    "Check If Details Provided": {
+      "main": [
+        [
+          {
+            "node": "Prepare Manual Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get JIRA Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Manual Input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "97060329-740b-4353-b45f-1a4d0639befe",
+  "meta": {
+    "instanceId": "ae59fcf61ad66d6152f721cc005beef1e00be1ffd892874d688a1695e8f5b0dc"
+  },
+  "id": "F96tv3KqF3y9gFnV",
+  "tags": []
+}
